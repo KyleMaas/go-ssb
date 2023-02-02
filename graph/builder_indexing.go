@@ -33,6 +33,7 @@ const (
 )
 
 func (b *BadgerBuilder) indexSyncStart() {
+	level.Warn(b.log).Log("msg", "sync start")
 	b.idxInSync.Add(1)
 }
 
@@ -40,13 +41,16 @@ func (b *BadgerBuilder) indexSyncDone() {
 	// this delay is here so that the WaitGroup is held while Luigi continues to process more data
 	// TODO: eliminate this delay once we have a way to query Luigi directly to see if it's done with its source queue
 	time.AfterFunc(100 * time.Millisecond, func() {
+		level.Warn(b.log).Log("msg", "sync done")
 		b.idxInSync.Done()
 	})
 }
 
 // WaitUntilIndexesAreSynced blocks until all the index processing is in sync with the rootlog
 func (b *BadgerBuilder) WaitUntilIndexesAreSynced() {
+	level.Warn(b.log).Log("msg", "waiting for sync")
 	b.idxInSync.Wait()
+	level.Warn(b.log).Log("msg", "done waiting for sync")
 }
 
 func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
@@ -57,8 +61,10 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 
 	if nulled, ok := val.(error); ok {
 		if margaret.IsErrNulled(nulled) {
+			level.Warn(b.log).Log("msg", "updateAnnouncement: skipping - IsErrNulled")
 			return nil
 		}
+		level.Warn(b.log).Log("msg", "updateAnnouncement: skipping - not IsErrNulled but returning anyway")
 		return nulled
 	}
 
@@ -71,6 +77,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 
 	announceMsg, ok := legacy.VerifyMetafeedAnnounce(msg.ContentBytes(), msg.Author(), nil) // TODO: hmac support
 	if !ok {
+		level.Warn(b.log).Log("msg", "updateAnnouncement: skipping invalid")
 		return nil // skip invalid messages
 	}
 
@@ -81,6 +88,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 		return fmt.Errorf("db/idx announcements: failed to turn metafeed value into binary: %w", err)
 	}
 
+	level.Warn(b.log).Log("msg", "updateAnnouncement: setting key ", addr, " to ", tfkRef)
 	err = idx.Set(ctx, addr, tfkRef)
 	if err != nil {
 		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", announceMsg, err)
@@ -108,8 +116,10 @@ func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val inter
 
 	if nulled, ok := val.(error); ok {
 		if margaret.IsErrNulled(nulled) {
+			level.Warn(b.log).Log("msg", "updateContacts: skipping - IsErrNulled")
 			return nil
 		}
+		level.Warn(b.log).Log("msg", "updateContacts: skipping - not IsErrNulled but returning anyway")
 		return nulled
 	}
 
@@ -125,6 +135,7 @@ func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val inter
 	if err != nil {
 		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
 		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)
+		level.Warn(b.log).Log("msg", "updateContacts: skipping - invalid")
 		return nil
 	}
 
@@ -132,10 +143,13 @@ func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val inter
 	addr += storedrefs.Feed(c.Contact)
 	switch {
 	case c.Following:
+		level.Warn(b.log).Log("msg", "updateContacts: setting key ", addr, " to idxRelValueFollowing")
 		err = idx.Set(ctx, addr, idxRelValueFollowing)
 	case c.Blocking:
+		level.Warn(b.log).Log("msg", "updateContacts: setting key ", addr, " to idxRelValueBlocking")
 		err = idx.Set(ctx, addr, idxRelValueBlocking)
 	default:
+		level.Warn(b.log).Log("msg", "updateContacts: setting key ", addr, " to idxRelValueNone")
 		err = idx.Set(ctx, addr, idxRelValueNone)
 		// cryptix: not sure why this doesn't work
 		// it also removes the node if this is the only follow from that peer
@@ -168,8 +182,10 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 
 	if nulled, ok := val.(error); ok {
 		if margaret.IsErrNulled(nulled) {
+			level.Warn(b.log).Log("msg", "updateMetafeeds: skipping - IsErrNulled")
 			return nil
 		}
+		level.Warn(b.log).Log("msg", "updateMetafeeds: skipping - not IsErrNulled but returning anyway")
 		return nulled
 	}
 
@@ -177,6 +193,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	if !ok {
 		err, ok := val.(error)
 		if ok && margaret.IsErrNulled(err) {
+			level.Warn(b.log).Log("msg", "updateMetafeeds: skipping - IsErrNulled #2")
 			return nil
 		}
 		return fmt.Errorf("index/get: unexpected message type: %T", val)
@@ -184,6 +201,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 
 	// skip invalid feeds
 	if msg.Author().Algo() != refs.RefAlgoFeedBendyButt {
+		level.Warn(b.log).Log("msg", "updateMetafeeds: skipping - invalid because feed type is not RefAlgoFeedBendyButt but is instead ", msg.Author().Algo())
 		return nil
 	}
 
@@ -236,6 +254,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		addr += storedrefs.Feed(addMsg.SubFeed)
 
 		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
+		level.Warn(b.log).Log("msg", "updateMetafeeds: setting key ", addr, " to idxRelValueMetafeed")
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
 
 	case "metafeed/add/derived":
@@ -254,6 +273,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		addr += storedrefs.Feed(addMsg.SubFeed)
 
 		level.Info(msgLogger).Log("adding", addMsg.SubFeed.ShortSigil())
+		level.Warn(b.log).Log("msg", "updateMetafeeds: setting key ", addr, " to idxRelValueMetafeed")
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
 
 	case "metafeed/tombstone":
@@ -272,6 +292,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		addr += storedrefs.Feed(tMsg.SubFeed)
 
 		level.Info(msgLogger).Log("removing", tMsg.SubFeed.ShortSigil())
+		level.Warn(b.log).Log("msg", "updateMetafeeds: setting key ", addr, " to idxRelValueNone")
 		err = idx.Set(ctx, addr, idxRelValueNone)
 
 	default:

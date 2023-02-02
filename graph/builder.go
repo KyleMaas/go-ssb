@@ -131,14 +131,17 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 	defer b.cacheLock.Unlock()
 
 	if b.cachedGraph != nil {
+		b.log.Log("event", "info", "msg", "using cached graph")
 		return b.cachedGraph, nil
 	}
 
+	b.log.Log("event", "info", "msg", "building new graph")
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
 		for iter.Seek(dbKeyPrefix); iter.ValidForPrefix(dbKeyPrefix); iter.Next() {
+			b.log.Log("event", "info", "msg", "processing message")
 			it := iter.Item()
 			k := it.Key()
 			if len(k) != 68+dbKeyPrefixLen {
@@ -170,6 +173,7 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 				}
 
 				nFrom = &contactNode{dg.NewNode(), fromRef, ""}
+				b.log.Log("event", "info", "msg", "adding node from", "nFrom", nFrom)
 				dg.AddNode(nFrom)
 				dg.lookup[bfrom] = nFrom
 			}
@@ -182,6 +186,7 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 					return err
 				}
 				nTo = &contactNode{dg.NewNode(), toRef, ""}
+				b.log.Log("event", "info", "msg", "adding node to", "nTo", nTo)
 				dg.AddNode(nTo)
 				dg.lookup[bto] = nTo
 			}
@@ -229,6 +234,7 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 				continue
 			}
 
+			b.log.Log("event", "info", "msg", "setting edge weight")
 			dg.SetWeightedEdge(edg)
 		}
 		return nil

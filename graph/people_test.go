@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -263,6 +264,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		}
 
 		// wait for the multilogs to catch up
+		time.Sleep(100 * time.Millisecond)
 		multilogs.WaitUntilUserFeedIndexIsSynced()
 
 		// punch in nicks

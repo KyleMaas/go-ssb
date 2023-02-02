@@ -6,6 +6,7 @@ package graph
 
 import (
 	"testing"
+	syslog "log"
 
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,7 @@ func newPublisherWithKP(t *testing.T, root margaret.Log, users multilog.MultiLog
 }
 
 func (p publisher) follow(ref refs.FeedRef) {
+	syslog.Printf("publisher: follow")
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   ref.String(),
@@ -52,6 +54,7 @@ func (p publisher) follow(ref refs.FeedRef) {
 }
 
 func (p publisher) unfollow(ref refs.FeedRef) {
+	syslog.Printf("publisher: unfollow")
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   ref.String(),
@@ -62,6 +65,7 @@ func (p publisher) unfollow(ref refs.FeedRef) {
 }
 
 func (p publisher) unblock(ref refs.FeedRef) {
+	syslog.Printf("publisher: unblock")
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
 		"contact":  ref.String(),
@@ -72,6 +76,7 @@ func (p publisher) unblock(ref refs.FeedRef) {
 }
 
 func (p publisher) block(ref refs.FeedRef) {
+	syslog.Printf("publisher: block")
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
 		"contact":  ref.String(),
